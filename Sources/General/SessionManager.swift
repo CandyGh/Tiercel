@@ -410,10 +410,15 @@ extension SessionManager {
 // MARK: - single task control
 extension SessionManager {
     
+    public func getTaskUrlKey(_ url: URL) -> String {
+        return url.absoluteString.components(separatedBy: "?")[0]
+    }
+    
     public func fetchTask(_ url: URLConvertible) -> DownloadTask? {
         do {
             let validURL = try url.asURL()
-            return protectedState.read { $0.taskMapper[validURL.absoluteString] }
+            let taskKey = self.getTaskUrlKey(validURL)///validURL.absoluteString
+            return protectedState.read { $0.taskMapper[taskKey] }
         } catch {
             log(.error("fetch task failed", error: TiercelError.invalidURL(url: url)))
             return nil
@@ -422,8 +427,9 @@ extension SessionManager {
     
     internal func mapTask(_ currentURL: URL) -> DownloadTask? {
         protectedState.read {
+            let taskKey = self.getTaskUrlKey(task.url)///task.url.absoluteString
             let url = $0.urlMapper[currentURL] ?? currentURL
-            return $0.taskMapper[url.absoluteString]
+            return $0.taskMapper[taskKey]
         }
     }
 
@@ -625,35 +631,37 @@ extension SessionManager {
 
         switch action {
         case let .append(task):
+            let taskKey = self.getTaskUrlKey(task.url)///task.url.absoluteString
             protectedState.write { state in
                 state.tasks.append(task)
-                state.taskMapper[task.url.absoluteString] = task
+                state.taskMapper[taskKey] = task
                 state.urlMapper[task.currentURL] = task.url
             }
         case let .remove(task):
+            let taskKey = self.getTaskUrlKey(task.url)///task.url.absoluteString
             protectedState.write { state in
                 if state.status == .willRemove {
-                    state.taskMapper.removeValue(forKey: task.url.absoluteString)
+                    state.taskMapper.removeValue(forKey: taskKey)
                     state.urlMapper.removeValue(forKey: task.currentURL)
                     if state.taskMapper.values.isEmpty {
                         state.tasks.removeAll()
                         state.succeededTasks.removeAll()
                     }
                 } else if state.status == .willCancel {
-                    state.taskMapper.removeValue(forKey: task.url.absoluteString)
+                    state.taskMapper.removeValue(forKey: taskKey)
                     state.urlMapper.removeValue(forKey: task.currentURL)
                     if state.taskMapper.values.count == state.succeededTasks.count {
                         state.tasks = state.succeededTasks
                     }
                 } else {
-                    state.taskMapper.removeValue(forKey: task.url.absoluteString)
+                    state.taskMapper.removeValue(forKey: taskKey)
                     state.urlMapper.removeValue(forKey: task.currentURL)
                     state.tasks.removeAll {
-                        $0.url.absoluteString == task.url.absoluteString
+                        self.getTaskUrlKey($0.url) == taskKey
                     }
                     if task.status == .removed {
                         state.succeededTasks.removeAll {
-                            $0.url.absoluteString == task.url.absoluteString
+                            self.getTaskUrlKey($0.url) == taskKey
                         }
                     }
                 }
@@ -665,9 +673,10 @@ extension SessionManager {
                 state.runningTasks.append(task)
             }
         case let .removeRunningTasks(task):
+            let taskKey = self.getTaskUrlKey(task.url)///task.url.absoluteString
             protectedState.write { state in
                 state.runningTasks.removeAll {
-                    $0.url.absoluteString == task.url.absoluteString
+                    self.getTaskUrlKey($0.url) == taskKey
                 }
             }
         }
