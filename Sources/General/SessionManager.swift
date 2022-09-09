@@ -427,8 +427,8 @@ extension SessionManager {
     
     internal func mapTask(_ currentURL: URL) -> DownloadTask? {
         protectedState.read {
-            let taskKey = self.getTaskUrlKey(task.url)///task.url.absoluteString
             let url = $0.urlMapper[currentURL] ?? currentURL
+            let taskKey = self.getTaskUrlKey(url)///url.absoluteString
             return $0.taskMapper[taskKey]
         }
     }
